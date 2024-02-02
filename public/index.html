@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Example of the Authorization Code flow with Spotify</title>
+
+    <!-- Bootstrap -->
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+    />
+    <!-- Local CSS -->
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- Login Button -->
+      <div id="login">
+        <h1>This is an example of the Authorization Code flow</h1>
+        <a href="/login" class="btn btn-primary">Log in with Spotify</a>
+      </div>
+
+      <!-- If user already logged in -->
+      <div id="loggedin">
+        <!-- [1] Placeholder - User Profile -->
+        <div id="user-profile"></div>
+        <!-- [2] Placeholder - oAuth Info -->
+        <div id="oauth"></div>
+
+        <!-- Button to obtain new token -->
+        <button class="btn btn-default" id="obtain-new-token">
+          Obtain new token using the refresh token
+        </button>
+      </div>
+    </div>
+
+    <!-- [1] Inside user profile template -->
+    <script id="user-profile-template" type="text/x-handlebars-template">
+      <h1>Logged in as {{display_name}}</h1>
+
+      <!-- User Profile Image -->
+      <div class="media">
+        <div class="pull-left">
+          <img class="media-object" width="150" src="{{images.0.url}}" />
+        </div>
+
+        <!-- User Profile Info -->
+        <div class="media-body">
+          <dl class="dl-horizontal">
+            <dt>Display name</dt>
+            <dd class="clearfix">{{display_name}}</dd>
+
+            <dt>Id</dt>
+            <dd>{{id}}</dd>
+
+            <dt>Email</dt>
+            <dd>{{email}}</dd>
+
+            <dt>Spotify URI</dt>
+            <dd>
+              <a href="{{external_urls.spotify}}">
+                {{external_urls.spotify}}
+              </a>
+            </dd>
+
+            <dt>Link</dt>
+            <dd>
+              <a href="{{href}}">{{href}}</a>
+            </dd>
+
+            <dt>Profile Image</dt>
+            <dd class="clearfix">
+              <a href="{{images.0.url}}">{{images.0.url}}</a>
+            </dd>
+
+            <dt>Country</dt>
+            <dd>{{country}}</dd>
+          </dl>
+        </div>
+      </div>
+    </script>
+
+    <!-- [2] Inside oAuth info template -->
+    <script id="oauth-template" type="text/x-handlebars-template">
+      <h2>oAuth info</h2>
+
+      <!-- User oAuth (tokens) Info -->
+      <dl class="dl-horizontal">
+        <dt>Access token</dt>
+        <dd class="text-overflow">{{access_token}}</dd>
+
+        <dt>Refresh token</dt>
+        <dd class="text-overflow">{{refresh_token}}</dd>
+      </dl>
+    </script>
+
+    <!-- Handlebars.js -->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0-alpha.1/handlebars.min.js"></script>
+    <!-- jQuery -->
+    <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+
+    <script src="./js/utils.js"></script>
+
+    <script>
+      /**
+       * Function to render user profile
+       */
+      function getUserProfile(access_token) {
+        // Select user profile template element
+        var userProfileSource = document.getElementById(
+          "user-profile-template"
+        ).innerHTML;
+        var userProfileTemplate = Handlebars.compile(userProfileSource);
+
+        // Select profile (placeholder) element
+        var userProfilePlaceholder = document.getElementById("user-profile");
+
+        // Get user profile
+        $.ajax({
+          url: "https://api.spotify.com/v1/me",
+          headers: {
+            Authorization: "Bearer " + access_token,
+          },
+          success: function (response) {
+            userProfilePlaceholder.innerHTML = userProfileTemplate(response);
+
+            $("#login").hide();
+            $("#loggedin").show();
+          },
+        });
+      }
+
+      /**
+       * Function to render oAuth info
+       */
+      function renderOAuthInfo(access_token, refresh_token) {
+        // Store access token in localStorage (to persist the authentication information between pages)
+        storeAccessToken(access_token);
+
+        // Select oAuth template element
+        var oauthSource = document.getElementById("oauth-template").innerHTML;
+        var oauthTemplate = Handlebars.compile(oauthSource);
+
+        // Select oAuth (placeholder) element
+        var oauthPlaceholder = document.getElementById("oauth");
+
+        // Render oAuth info
+        oauthPlaceholder.innerHTML = oauthTemplate({
+          access_token: access_token,
+          refresh_token: refresh_token,
+        });
+      }
+
+      /**
+       * Function to handle authentication success
+       */
+      function handleAuthenticationSuccess(params) {
+        var access_token = params.access_token;
+        var refresh_token = params.refresh_token;
+
+        // [1] Get user profile
+        getUserProfile(access_token);
+        // [2] Render oAuth info
+        renderOAuthInfo(access_token, refresh_token);
+      }
+
+      /**
+       * Function to handle authentication error
+       */
+      function handleAuthenticationError(error) {
+        alert("There was an error during the authentication: " + error);
+      }
+
+      /**
+       * Function to handle obtaining a new access token using refresh token
+       */
+      function handleObtainNewToken(refresh_token) {
+        $.ajax({
+          url: "/refresh_token",
+          data: {
+            refresh_token: refresh_token,
+          },
+        }).done(function (data) {
+          // Renew access token
+          var access_token = data.access_token;
+
+          // [2] Render oAuth info view
+          renderOAuthInfo(access_token, refresh_token);
+        });
+      }
+
+      // Main function
+      (function () {
+        // Obtain parameters from the hash of the URL
+        var params = getHashParams();
+
+        // Get tokens from parameters
+        var access_token = params.access_token;
+        var refresh_token = params.refresh_token;
+        var error = params.error;
+
+        // Handle authentication success or error
+        if (error) {
+          handleAuthenticationError(error);
+        } else {
+          // If access token exists (already logged-in)
+          if (access_token) {
+            // Handle authentication success
+            handleAuthenticationSuccess(params);
+          } else {
+            // If access token does not exist (log-in required)
+            // Render initial screen
+            $("#login").show();
+            $("#loggedin").hide();
+          }
+
+          // Click event to obtain a new access token using refresh token
+          document.getElementById("obtain-new-token").addEventListener(
+            "click",
+            function () {
+              handleObtainNewToken(refresh_token);
+            },
+            false
+          );
+        }
+      })();
+    </script>
+  </body>
+</html>
