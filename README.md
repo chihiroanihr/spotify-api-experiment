@@ -1,5 +1,11 @@
 # Spotify API Experiment
 
+## 🖼️Preview
+
+<img width="500" alt="Screenshot 2024-02-01 200212" src="https://github.com/chihiroanihr/spotify-api-experiment/assets/42660669/c2acf8c4-7a5b-45e7-8710-3dac1a179f14">
+
+## 🔗Links
+
 ### Website
 
 - [Spotify for Developers (with Playground)](https://developer.spotify.com/)
